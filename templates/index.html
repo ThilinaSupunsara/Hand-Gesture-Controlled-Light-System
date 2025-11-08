@@ -4,12 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Interactive finger light show with dark theme">
-    <title>Finger Light Show | Dark Mode</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Finger Light Show | Client-Side</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
     
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+        /* CSS එකත් මෙතනම දානවා, static file එකක් ඕන නැත්නම් */
+        /* ඔයාගෙ style.css එකේ content එක මෙතන paste කරන්න */
+        /* ... Your style.css content goes here ... */
+
+        /* Video/Canvas එක හරියට පෙන්නන්න පොඩි style එකක් */
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px; /* Video width */
+            margin: auto;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #111;
+        }
+        #output_canvas {
+            width: 100%;
+            height: auto;
+            transform: scaleX(-1); /* Mirror view */
+        }
+        #webcam {
+            display: none; /* Hide the raw video, we only show the canvas */
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -26,14 +57,11 @@
         <div class="main-grid">
             <div class="panel">
                 <h2 class="section-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" stroke="currentColor" stroke-width="2"/>
-                        <path d="M12 4V6M12 18V20M4 12H6M18 12H20M4.92893 4.92893L6.34315 6.34315M17.6569 17.6569L19.0711 19.0711M4.92893 19.0711L6.34315 17.6569M17.6569 6.34315L19.0711 4.92893" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
                     CAMERA FEED
                 </h2>
                 <div class="video-container">
-                    <img id="videoFeed" src="" alt="Live camera feed showing hand gesture detection">
+                    <video id="webcam"></video> 
+                    <canvas id="output_canvas" width="640px" height="480px"></canvas>
                 </div>
                 <div class="status-display">
                     <div class="status-card">
@@ -49,67 +77,41 @@
 
             <div class="panel">
                 <h2 class="section-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 20H15M12 20V17M12 17L15 9C15 7.34315 13.6569 6 12 6C10.3431 6 9 7.34315 9 9L12 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
                     LIGHT CONTROLS
                 </h2>
                 <div class="controls-container">
                     <div class="light-grid">
-                        <div class="light-bulb">
-                            <div class="bulb" id="bulb1"></div>
-                            <span class="bulb-label">LIGHT 1</span>
-                        </div>
-                        <div class="light-bulb">
-                            <div class="bulb" id="bulb2"></div>
-                            <span class="bulb-label">LIGHT 2</span>
-                        </div>
-                        <div class="light-bulb">
-                            <div class="bulb" id="bulb3"></div>
-                            <span class="bulb-label">LIGHT 3</span>
-                        </div>
-                        <div class="light-bulb">
-                            <div class="bulb" id="bulb4"></div>
-                            <span class="bulb-label">LIGHT 4</span>
-                        </div>
-                        <div class="light-bulb">
-                            <div class="bulb" id="bulb5"></div>
-                            <span class="bulb-label">LIGHT 5</span>
-                        </div>
+                        <div class="light-bulb"><div class="bulb" id="bulb1"></div><span class="bulb-label">LIGHT 1</span></div>
+                        <div class="light-bulb"><div class="bulb" id="bulb2"></div><span class="bulb-label">LIGHT 2</span></div>
+                        <div class="light-bulb"><div class="bulb" id="bulb3"></div><span class="bulb-label">LIGHT 3</span></div>
+                        <div class="light-bulb"><div class="bulb" id="bulb4"></div><span class="bulb-label">LIGHT 4</span></div>
+                        <div class="light-bulb"><div class="bulb" id="bulb5"></div><span class="bulb-label">LIGHT 5</span></div>
                     </div>
                     <h2 class="section-title">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 15V17M12 11V12M12 7V8M7 17H17C18.1046 17 19 16.1046 19 15V9C19 7.89543 18.1046 7 17 7H7C5.89543 7 5 7.89543 5 9V15C5 16.1046 5.89543 17 7 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                HOW TO USE
-            </h2>
-            <ul class="instructions-list">
-                <li>Position your hand in front of your camera</li>
-                <li>Raise fingers to activate corresponding lights</li>
-                <li>1 finger = Light 1, 2 fingers = Lights 1 & 2, etc.</li>
-                <li>Keep your hand steady for best detection</li>
-            </ul>
-                    
+                        HOW TO USE
+                    </h2>
+                    <ul class="instructions-list">
+                        <li>Position your hand in front of your camera</li>
+                        <li>Raise fingers to activate corresponding lights</li>
+                        <li>1 finger = Light 1, 2 fingers = Lights 1 & 2, etc.</li>
+                        <li>Keep your hand steady for best detection</li>
+                    </ul>
                     <div class="connection-status">
                         <div class="connection-dot" id="connectionDot"></div>
-                        <div class="connection-text" id="connectionStatus">CONNECTING...</div>
+                        <div class="connection-text" id="connectionStatus">INITIALIZING...</div>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script>
+    <script type="module">
         document.addEventListener('DOMContentLoaded', function() {
-           
-
-            // Connect to Socket.IO
-            const socket = io();
             
             // DOM elements
-            const videoFeed = document.getElementById('videoFeed');
+            const videoElement = document.getElementById('webcam');
+            const canvasElement = document.getElementById('output_canvas');
+            const canvasCtx = canvasElement.getContext('2d');
             const fingerCountDisplay = document.getElementById('fingerCount');
             const activeLightsDisplay = document.getElementById('activeLights');
             const connectionDot = document.getElementById('connectionDot');
@@ -121,13 +123,33 @@
                 lightBulbs.push(document.getElementById(`bulb${i}`));
             }
 
-            // Event listeners
-            socket.on('video_frame', function(data) {
-                videoFeed.src = 'data:image/jpeg;base64,' + data.image;
-            });
+            // --- Finger Counting Logic (Python වලින් JS වලට port කරපු එක) ---
+            const TIP_IDS = [4, 8, 12, 16, 20];
+            const BASE_IDS = [3, 6, 10, 14, 18]; // Using MCP for fingers, IP for thumb
 
-            socket.on('finger_count_update', function(data) {
-                const count = data.count;
+            function countFingers(handLandmarks) {
+                let fingers = 0;
+                
+                // Y-coordinate: 0 is top, 1 is bottom. 
+                // So, if tip.y < base.y, the finger is "up".
+                
+                // Thumb (Special logic: check Y coordinate)
+                // Note: User's Python code had a simple Y check. We'll replicate that.
+                if (handLandmarks[TIP_IDS[0]].y < handLandmarks[BASE_IDS[0]].y) {
+                    fingers++;
+                }
+
+                // Other 4 fingers
+                for (let i = 1; i < 5; i++) {
+                    if (handLandmarks[TIP_IDS[i]].y < handLandmarks[BASE_IDS[i]].y) {
+                        fingers++;
+                    }
+                }
+                return fingers;
+            }
+
+            // --- UI Update Function ---
+            function updateUI(count) {
                 fingerCountDisplay.textContent = count;
                 activeLightsDisplay.textContent = count;
 
@@ -139,25 +161,69 @@
                         bulb.classList.remove('lit');
                     }
                 });
+            }
+
+            // --- MediaPipe Hands Setup ---
+            const hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
 
-            socket.on('connect', function() {
-                console.log('Connected to server');
-                connectionDot.classList.add('connected');
-                connectionStatus.textContent = 'CONNECTED';
+            hands.setOptions({
+                maxNumHands: 1, // එක අතක් detect කරන්න
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
             });
 
-            socket.on('disconnect', function() {
-                console.log('Disconnected from server');
-                connectionDot.classList.remove('connected');
-                connectionStatus.textContent = 'DISCONNECTED';
-            });
+            // --- Main Processing Function ---
+            function onResults(results) {
+                canvasCtx.save();
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-            socket.on('connect_error', function() {
-                console.log('Connection error');
-                connectionDot.classList.remove('connected');
-                connectionStatus.textContent = 'CONNECTION ERROR';
+                let fingerCount = 0;
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    // එක අතක් විතරක් පාවිච්චි කරන නිසා [0]
+                    const handLandmarks = results.multiHandLandmarks[0];
+                    
+                    // Draw landmarks
+                    drawConnectors(canvasCtx, handLandmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 5});
+                    drawLandmarks(canvasCtx, handLandmarks, {color: '#FF0000', lineWidth: 2});
+
+                    // Count fingers
+                    fingerCount = countFingers(handLandmarks);
+                }
+                
+                // Update the UI
+                updateUI(fingerCount);
+                
+                canvasCtx.restore();
+            }
+
+            hands.onResults(onResults);
+
+            // --- Camera Setup ---
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 640,
+                height: 480
             });
+            
+            // Start camera and update status
+            camera.start()
+                .then(() => {
+                    connectionStatus.textContent = 'CAMERA ACTIVE';
+                    connectionDot.classList.add('connected');
+                })
+                .catch((e) => {
+                    console.error("Camera Error:", e);
+                    connectionStatus.textContent = 'CAMERA ERROR';
+                    connectionDot.classList.remove('connected');
+                });
+            
+            updateUI(0); // Initialize UI
         });
     </script>
 </body>
